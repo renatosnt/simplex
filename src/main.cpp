@@ -1,5 +1,7 @@
 #include <iostream>
 #include <vector>
+#include <algorithm>
+#include <functional>
 
 using namespace std;
 
@@ -59,58 +61,122 @@ int main() {
     // entradas no vetor c correspondentes a pl auxiliar
 
     for (int j = idx_auxiliar; j < idx_b; j++) {
-        tableau[0][j] = -1;
+        tableau[0][j] = 1;
     }
 
-
     /*
-    antes de iniciar o simplex, temos que conferir se o vetor b é positivo
-    e se está na forma canonica
 
 
     andamos pelo vetor c^T
     se acharmos uma entrada negativa:
         andamos pela coluna
-        procuramos na coluna o elemento que minimiza bi/ci, tal que ci > 0
+        procuramos na coluna o elemento que minimiza bi/ai, tal que ci > 0
         se a coluna só tem elementos <= 0, PL ilimitada
         gera o certificado
         pivoteia o elemento que minimiza a razão acima
 
     */
-   for (int j = idx_restricoes; j < idx_auxiliar; j++) {
-
-       if (tableau[0][j] < 0) {
-
-           int i_min = -1;
-           int j_min = -1;
-           float min = INF;
-            // for que percorre toda a coluna procurando pelo menor elemento (procuraMenor())
-           for(int i = 1; i < TABLEAU_N; i++) {
-
-               if (tableau[i][j] > 0) {
-                    float razao = tableau[i][idx_b] / tableau[i][j];
-                    if (razao < min) {
-                        min = razao;
-                        i_min = i;
-                        j_min = j;
-                    }
-               } 
-           }
-           
-            // se não achou o menor, então é ilimitada
-            if (i_min == -1 and j_min == -1) {
-                cout << "ilimitada" << endl;
-                return 0;
+    //verificações pré-simplex
+    //verifica se o vetor b é positivo, se não for, multiplica a linha dele por -1
+    for (int i = 1; i < TABLEAU_N; i++) {
+        if (tableau[i][idx_b] < 0) {
+            for (int j = 0; j < idx_auxiliar; j++) {
+                if (tableau[i][j] != 0)//tentar tirar esse if depois
+                    tableau[i][j] = tableau[i][j] * (-1);
             }
-            // se achou o menor, pivoteia ele
-            cout << "pivoteando elemento " << tableau[i_min][j_min] << endl;
-
-       }
-
-   }
+            tableau[i][idx_b] = tableau[i][idx_b] * (-1);
+        }
+    }
 
 
 
+   //inicia o simplex auxiliar
+   //para cada coluna de restrição
+
+    vector<float> objetivo_original(TABLEAU_M);
+    vector<float> objetivo_auxiliar(TABLEAU_M, 0);
+
+    //guardando a objetivo original
+    for (int j = 0; j < TABLEAU_M; j++) {
+        objetivo_original[j] = tableau[0][j];
+    }
+    //guardando a objetivo auxiliar
+    for (int j = idx_auxiliar; j < idx_b; j++) {
+        objetivo_auxiliar[j] = 1;
+    }
+    
+
+
+    // colocando na forma canonica
+    //soma todas as linhas começando da segunda, multiplica por -1 e soma na primeira
+    vector<float> linha(TABLEAU_M, 0);
+    for (int j = 0; j < TABLEAU_M; j++) {
+        for (int i = 1; i < TABLEAU_N; i++) {
+            linha[j] += tableau[i][j] * (-1);
+        }
+    }
+    for (int j = 0; j < TABLEAU_M; j++) {
+        objetivo_auxiliar[j] += linha[j];
+    }
+    //
+
+
+
+    //simplex resolvendo a auxiliar (simplex fase 2)
+    
+    //passa a funcao objetivo original para a funcao objetivo da auxiliar
+    for(int i = 0; i < TABLEAU_M; i++) {
+        tableau[0][i] = objetivo_auxiliar[i];
+    }
+
+    // escolhendo quem vai pivotear
+    bool tem_negativo = true;
+    while (tem_negativo) {
+        tem_negativo = false;
+        for (int j = idx_restricoes; j < idx_auxiliar; j++) {
+
+            if (tableau[0][j] < 0) {
+                tem_negativo = true;
+                int i_min = -1;
+                int j_min = -1;
+                float min = INF;
+                    // for que percorre toda a coluna procurando pelo menor elemento (procuraMenor())
+                for(int i = 1; i < TABLEAU_N; i++) {
+
+                    if (tableau[i][j] > 0) {
+                            float razao = tableau[i][idx_b] / tableau[i][j];
+                            if (razao < min) {
+                                min = razao;
+                                i_min = i;
+                                j_min = j;
+                            }
+                    } 
+                }
+                
+                    // se não achou o menor, então é ilimitada
+                    if (i_min == -1 and j_min == -1) {
+                        cout << "ilimitada" << endl;
+                        return 0;
+                    }
+                    // se achou o menor, pivoteia ele
+                    cout << "pivoteando elemento " << tableau[i_min][j_min] << endl;
+                    //pega a linha do elemento a ser pivoteado
+                    linha = tableau[i_min];
+                    //para todas as linhas, pega o elemento da coluna jmin que seja diferente do pivo e faz operacao pra tornar o elemento zero
+                    for (int i = 0; i < TABLEAU_N; i++) {
+                        if (tableau[i][j_min] != tableau[i_min][j_min]) {
+                            float fator = tableau[i][j_min] * (-1);
+                            for (auto &a : linha)
+                                a *= fator;
+                            transform(tableau[i].begin(), tableau[i].end(), linha.begin(), tableau[i].begin(), plus<int>());
+                        }
+                    }
+                
+            }
+
+        }
+
+    }
 
 
 
@@ -128,6 +194,13 @@ int main() {
 
 
 
+    //COMENTE O CODIGO ABAIXO PARA PRINTAR A PRINCIPAL. DESCOMENTE PRA PRINTAR A AUXILIAR.
+    // for(int i = 0; i < TABLEAU_M; i++) {
+    //     tableau[0][i] = objetivo_auxiliar[i];
+    // }
+
+
+    /////////////////////////////////////////////////////////////////////////////////////
 
 
 
@@ -152,6 +225,20 @@ int main() {
         cout << endl;
     }
 
-    //para tratar negativos: se a coluna tem um negativo, coloca um espaço a mais ou algo assim
 
+
+    cout << endl << "::::::::::::funcao objetivo original::::::::::::::" << endl;
+    for (int i = 0; i < TABLEAU_M; i++) {
+        cout << objetivo_original[i] << " ";
+    }
+
+    cout << endl << "::::::::::::funcao objetivo auxiliar:::::::::::::" << endl;
+    for (int i = 0; i < TABLEAU_M; i++) {
+        cout << objetivo_auxiliar[i] << " ";
+    }
+
+    cout << endl << ":::::::::::::::linha do pivo:::::::::::::" << endl;
+    for (int i = 0; i < TABLEAU_M; i++) {
+        cout << linha[i] << " ";
+    }
 }
