@@ -139,15 +139,9 @@ void usar_fun_obj_principal (vector<vector<float>> &tableau, vector<float> fun_o
 
 void colocar_forma_canonica (vector<vector<float>> &tableau, vector<pair<int,int>> pivos) {
     vector<float> linha(TABLEAU_M, 0);
-    int fatores[n];
-    // para cada coluna da base, temos um fator correspondente que é -ci
-    for (int i = 0; i < n; i++) {
-        int j = pivos[i].second;
-        fatores[i] = tableau[0][j] * (-1);
-    }
-
-    
+   
     // para cada pivo, fazemos:
+    cout << "pivos (forma canonica): " << endl;
     for (int i = 0; i < n; i++) {
         int lp = pivos[i].first;
         int cp = pivos[i].second;
@@ -176,22 +170,110 @@ void colocar_forma_canonica (vector<vector<float>> &tableau, vector<pair<int,int
     
         for (int j = 0; j < TABLEAU_M; j++) {
             tableau[0][j] += linha[j];
-        }
-
-        
+        }   
     }
- 
-
-
-
-    // for (int i = 1; i < TABLEAU_N; i++) {
-    //     for (int j = idx_restricoes; j < idx_b; j++) {
-
-    //     }
-    // }
-
-
 }
+
+pair<int, int> procurar_candidato_a_pivo(vector<vector<float>> &tableau, bool& tem_negativo) {
+    //percorre toda a llinha de restricoes e acha um ci negativo
+    int i_min = -2;
+    int j_min = -2;
+    float min = INF;
+    for (int j = idx_restricoes; j < idx_b; j++) {   
+        //se temos um ci negativo
+        if (tableau[0][j] < 0) {
+            i_min = -1;
+            j_min = -1;
+            // então percorra toda a coluna abaixo desse ci negativo minimizando bi/ai
+            for (int i = 1; i < TABLEAU_N; i++) {
+                // se temos uma entrada maior que zero na coluna de tal ci
+                if(tableau[i][j] > 0) {
+                    //escolhemos a menor razao
+                    float razao = tableau[i][idx_b] / tableau[i][j];
+                    if (razao < min) {
+                        min = razao;
+                        //o elemento que será nosso pivô será esse
+                        i_min = i;
+                        j_min = j;
+                    }
+                }
+            }
+            break; //ja percorreu a coluna, então sai do loop, ou seja, para de procurar por outro ci negativo
+        }
+    }
+
+    // se chegou no fim da coluna e não achou o menor, então é ilimitada
+    if (i_min == -1 and j_min == -1) {
+        cout << "ilimitada" << endl;
+        return {-1, -1};
+    }
+    else if (i_min >= 0 and j_min >= 0){
+        // se achou o menor, pivoteia ele
+        return {i_min, j_min};
+    }
+    tem_negativo = false;
+    return {i_min, j_min};
+}
+
+
+void pivotear_elemento (vector<vector<float>> &tableau, int lp, int cp) {
+         //pega a linha do elemento a ser pivoteado
+        vector<float> linha(TABLEAU_M);
+        linha = tableau[lp];
+        //para todas as linhas, menos a própria linha
+        // o que essa função vai fazer é zerar um elemento da coluna de cada vez, MENOS o elemento pivô, então teremos dois for's pra fazer isso
+        
+
+        for (int i = 0; i < TABLEAU_N; i++) {
+            //para cada linha que não seja a do pivô
+            if (i == lp)    
+                continue;
+            linha = tableau[lp];
+            for (int j = 0; j < TABLEAU_M; j++) {
+                //multiplicamos a linha do pivô pela entrada que queremos zerar negativa
+                linha[j] *= tableau[i][cp] * (-1);
+            }
+            //somamos essa linha na linha da entrada que queremos zerar
+            transform (tableau[i].begin(), tableau[i].end(), linha.begin(), tableau[i].begin(), plus<int>());
+        }
+}
+
+void printa_linha (vector<float> linha) {
+    for (int i = 0; i < TABLEAU_M; i++) {
+        cout << linha[i] << " ";
+    }
+    cout << endl;
+}
+
+void simplex_fase_2 (vector<vector<float>> &tableau) {
+    bool tem_negativo = true;
+    
+    
+    while (tem_negativo) {
+        pair<int, int> pivo = procurar_candidato_a_pivo(tableau, tem_negativo);
+
+        int lp = pivo.first;
+        int cp = pivo.second;
+        if (tem_negativo == false or (lp == -1 and cp == -1))
+            break;
+    
+
+        cout << "pivoteando elemento " << lp << " " << cp << endl;
+        
+        printa_linha(tableau[lp]);
+        // transforma o elemento pivô em 1
+        if (tableau[lp][cp] != 1) {
+            float fator = tableau[lp][cp];
+            for (int i = 0; i < TABLEAU_M; i++) {
+                tableau[lp][i] = tableau[lp][i] / fator;
+            }
+        }
+        printa_linha(tableau[lp]);
+        pivotear_elemento(tableau, lp, cp);
+
+    }
+}
+
 
 int main() {
 
@@ -200,7 +282,7 @@ int main() {
     cin >> n >> m;
 
     TABLEAU_N = n + 1;
-    TABLEAU_M = n + m + n + n + 1;
+    TABLEAU_M = n + m + n + n + 1; //vero(n), restricoes(m), folga(n), identidade do auxiliar(n), b(1)
 
     idx_restricoes = n;
     idx_folga = n + m ;
@@ -235,69 +317,21 @@ int main() {
 
     colocar_forma_canonica(tableau, pivos);
 
-    //na hora de pivotear, eu marco os indices do pivo (bases) no vetor de pivos
-
-
-
-
-
+    simplex_fase_2 (tableau);
 
     /*
+        se existe algum b negativo:
+            multiplicamos a linha dele por -1
+            colocamos na forma canonica
+            trocamos a funcao objetivo pela auxiliar
+            aplicamos o simplex fase 2
+            voltamos a funcao objetivo original
+            aplicamos simplex fase 1
+        se não existe b negativo
+            aplicamos o simplex fase 1
 
-
-    andamos pelo vetor c^T
-    se acharmos uma entrada negativa:
-        andamos pela coluna
-        procuramos na coluna o elemento que minimiza bi/ai, tal que ci > 0
-        se a coluna só tem elementos <= 0, PL ilimitada
-        gera o certificado
-        pivoteia o elemento que minimiza a razão acima
 
     */
-   
 
 
-
-   //inicia o simplex auxiliar
-   //para cada coluna de restrição
-
-
-    
-
-
-    // colocando na forma canonica
-    //soma todas as linhas começando da segunda, multiplica por -1 e soma na primeira
-    
-    //
-
-
-
-    //simplex resolvendo a auxiliar (simplex fase 2)
-    
-  
-
-    // escolhendo quem vai pivotear
-    
-
-
-    //COMENTE O CODIGO ABAIXO PARA PRINTAR A PRINCIPAL. DESCOMENTE PRA PRINTAR A AUXILIAR.
-    // for(int i = 0; i < TABLEAU_M; i++) {
-    //     tableau[0][i] = objetivo_auxiliar[i];
-    // }
-
-
-    /////////////////////////////////////////////////////////////////////////////////////
-
-
-
-    cout << endl << "::::::::::::::PRINT DE TESTES:::::::::::::::" << endl;
-    teste_mostrar_tableau(tableau);
-    teste_mostrar_fun_obj_orig(fun_objetivo_original);
-    teste_mostrar_fun_obj_aux(fun_objetivo_auxiliar);
-
-
-    // cout << endl << ":::::::::::::::linha do pivo:::::::::::::" << endl;
-    // for (int i = 0; i < TABLEAU_M; i++) {
-    //     cout << linha[i] << " ";
-    // }
 }
