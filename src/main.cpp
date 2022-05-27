@@ -22,9 +22,9 @@ void teste_mostrar_tableau (vector<vector<float>> tableau) {
     for (int i = 0; i <  TABLEAU_N; i++) {
         for (int j = 0; j < TABLEAU_M; j++) { 
             if (tableau[i][j] >= 0)
-                cout << "   " << tableau[i][j];
+                cout << "   " << (tableau[i][j]);
             else
-                cout << "  " << tableau[i][j];
+                cout << "  " << (tableau[i][j]);
             if(j == n - 1 or j == n + m + n - 1 or j == n + m + n + n - 1) {
                 cout << "| ";
             }
@@ -59,7 +59,7 @@ void ler_entradas (vector<vector<float>> &tableau) {
         cin >> entrada_c;
         tableau[0][j] = entrada_c * -1;
     }
-
+    
     // receber vetor A (restricoes) (ele adiciona o vetor b logo ao lado pra depois mover ele)
     for (int i = 1; i < TABLEAU_N; i++) {
         for (int j = idx_restricoes; j < idx_folga + 1; j++) {
@@ -109,7 +109,7 @@ void guardar_fun_objetivo_aux (vector<float> &fun_objetivo_auxiliar) {
     }
 }
 
-void condicoes_pre_simplex (vector<vector<float>> &tableau) {
+void tornar_b_positivo (vector<vector<float>> &tableau) {
     //verifica se o vetor b é positivo, se não for, multiplica a linha dele por -1
     for (int i = 1; i < TABLEAU_N; i++) {
         if (tableau[i][idx_b] < 0) {
@@ -274,6 +274,47 @@ void simplex_fase_2 (vector<vector<float>> &tableau) {
     }
 }
 
+void simplex_fase_1 (vector<vector<float>> &tableau) {
+    //faz o mesmo que o simplex fase 2, mas não pega o intervalo da auxiliar e deve tratar o b sozinho
+    bool tem_negativo = true;
+    
+    while(tem_negativo) {
+        //zera as entradas do vetor c da auxiliar para evitar que ela seja pivoteada
+        for (int j = idx_auxiliar; j < idx_b; j++) {
+            tableau[0][j] = 0;
+        }
+        pair<int, int> pivo = procurar_candidato_a_pivo(tableau, tem_negativo);
+
+        int lp = pivo.first;
+        int cp = pivo.second;
+
+        if(tem_negativo == false or (lp == -1 and cp == -1))
+            break;
+        cout << "pivoteando elemento (fase 1)" << lp << " " << cp << endl;
+        printa_linha(tableau[lp]);
+        // transforma o elemento pivô em 1
+        if (tableau[lp][cp] != 1) {
+            float fator = tableau[lp][cp];
+            for (int i = 0; i < TABLEAU_M; i++) {
+                tableau[lp][i] = tableau[lp][i] / fator;
+            }
+        }
+        printa_linha(tableau[lp]);
+        pivotear_elemento(tableau, lp, cp);
+    }
+}
+
+
+bool checar_b_negativo (vector<vector<float>> &tableau) {
+    // se tem b negativo, retorna true
+    // se não tem b negativo, retorna false
+    for (int i = 1; i < TABLEAU_M; i++) {
+        if (tableau[i][idx_b] < 0)
+            return true;
+    }
+    return false;
+}
+
 
 int main() {
 
@@ -304,9 +345,6 @@ int main() {
     guardar_fun_objetivo_aux(fun_objetivo_auxiliar);
 
 
-    condicoes_pre_simplex(tableau);
-
-    usar_fun_obj_aux(tableau, fun_objetivo_auxiliar);
 
 
     vector<pair<int,int>> pivos(TABLEAU_N);
@@ -315,23 +353,46 @@ int main() {
         pivos[k] = pivo;
     }
 
-    colocar_forma_canonica(tableau, pivos);
 
-    simplex_fase_2 (tableau);
 
+
+
+    if (checar_b_negativo(tableau)){
+    // se existe algum b negativo:
+        // multiplicamos a linha dele por -1
+        tornar_b_positivo(tableau);
+
+        //     trocamos a funcao objetivo pela auxiliar
+        usar_fun_obj_aux(tableau, fun_objetivo_auxiliar);
+
+        //     colocamos na forma canonica
+        colocar_forma_canonica(tableau, pivos);
+
+        //     aplicamos o simplex fase 2
+        simplex_fase_2 (tableau);
+        //     voltamos a funcao objetivo original
+        usar_fun_obj_principal(tableau, fun_objetivo_original);
+        //     aplicamos simplex fase 1
+        simplex_fase_1 (tableau);
+    
+
+    } else {
+        // se não existe b negativo
+        //     aplicamos o simplex fase 1
+        cout << "não existe b negativo" << endl;
+    }
+    
     /*
-        se existe algum b negativo:
-            multiplicamos a linha dele por -1
-            colocamos na forma canonica
-            trocamos a funcao objetivo pela auxiliar
-            aplicamos o simplex fase 2
-            voltamos a funcao objetivo original
-            aplicamos simplex fase 1
-        se não existe b negativo
-            aplicamos o simplex fase 1
-
-
+    talvez as bases da solução auxiliar estejam erradas
+    
     */
 
+   //////////////////////TESTES////////////////////////
+    teste_mostrar_tableau(tableau);
+    cout << endl << "Função Objetivo Original";
+    teste_mostrar_fun_obj_orig(fun_objetivo_original);
 
+    cout << endl << "Função Objetivo Auxiliar";
+    teste_mostrar_fun_obj_aux(fun_objetivo_auxiliar);
+    cout << endl;
 }
