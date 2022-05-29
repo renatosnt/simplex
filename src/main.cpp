@@ -6,7 +6,8 @@
 
 using namespace std;
 
-const int INF = 0x3f3f3f3f;
+const float INF = 0x3f3f3f3f;
+const float limite = 1e-6;
 int n, m;
 
 int TABLEAU_N;
@@ -18,6 +19,18 @@ int idx_folga;
 int idx_auxiliar;
 int idx_b;
 /////////////////////////////TESTES///////////////////////////////////
+
+
+void iguala_a_zero(vector<vector<float>> &tableau) {
+    for (int i = 0; i < TABLEAU_N; i++) {
+        for (int j = 0; j < TABLEAU_M; j++) {
+            if (tableau[i][j] <= limite) {
+                tableau[i][j] = 0;
+            }
+        }
+    }
+}
+
 void teste_mostrar_tableau (vector<vector<float>> tableau) {
     cout << endl;
     for (int i = 0; i <  TABLEAU_N; i++) {
@@ -56,7 +69,7 @@ void teste_mostrar_fun_obj_aux (vector<float> fun_objetivo_aux) {
 void ler_entradas (vector<vector<float>> &tableau) {
     //receber funcao objetiva
     for (int j = idx_restricoes; j < idx_folga; j++) {
-        int entrada_c;
+        float entrada_c;
         cin >> entrada_c;
         tableau[0][j] = entrada_c * -1;
     }
@@ -64,7 +77,9 @@ void ler_entradas (vector<vector<float>> &tableau) {
     // receber vetor A (restricoes) (ele adiciona o vetor b logo ao lado pra depois mover ele)
     for (int i = 1; i < TABLEAU_N; i++) {
         for (int j = idx_restricoes; j < idx_folga + 1; j++) {
-            cin >> tableau[i][j];
+            float a;
+            cin >> a;
+            tableau[i][j] = a;
         }
     }
 }
@@ -313,7 +328,7 @@ void mostrar_certificado(vector<vector<float>> &tableau) {
 }
 
 void verificar_viabilidade (vector<vector<float>> &tableau) {
-    if (tableau[0][idx_b] != 0) {
+    if (tableau[0][idx_b] != (0)) {
         cout << "inviavel" << endl;
         mostrar_certificado(tableau);
         exit(0);
@@ -352,7 +367,8 @@ void simplex_fase_2 (vector<vector<float>> &tableau, vector<pair<int, int>> &piv
         pivotear_elemento(tableau, lp, cp);
 
     }
-
+    //iguala_a_zero(tableau);
+    // teste_mostrar_tableau(tableau);
     verificar_viabilidade(tableau);
 }
 
@@ -385,6 +401,7 @@ void simplex_fase_1 (vector<vector<float>> &tableau) {
 
         pivotear_elemento(tableau, lp, cp);
     }
+
 }
 
 
@@ -459,7 +476,7 @@ int main() {
     }
 
 
-
+    // teste_mostrar_tableau(tableau);
     if (tem_b_negativo(tableau)){
     // se existe algum b negativo:
         // multiplicamos a linha dele por -1
@@ -468,8 +485,9 @@ int main() {
         //     trocamos a funcao objetivo pela auxiliar
         usar_fun_obj_aux(tableau, fun_objetivo_auxiliar);
         //     colocamos na forma canonica
+        // teste_mostrar_tableau(tableau);
         colocar_forma_canonica(tableau, pivos);
-        
+        // teste_mostrar_tableau(tableau);
         //     aplicamos o simplex fase 2
 
         simplex_fase_2 (tableau, pivos);
@@ -483,6 +501,7 @@ int main() {
         colocar_forma_canonica(tableau, pivos);
         // //aplicamos o simplex
         simplex_fase_1 (tableau);
+
     
         
     } else {
@@ -505,3 +524,6 @@ int main() {
     // teste_mostrar_fun_obj_aux(fun_objetivo_auxiliar);
     // cout << endl;
 }
+
+// passa em todos os testes do pdf do tp
+// nos casos de teste extra passa em: 1, 6,7
